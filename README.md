@@ -1,10 +1,4 @@
-# NISHAN Thakuri (Universitry of Chester Student)
-NISH AI
-
-Created and developed by Nishan Thakuri
-
-An AI operating system focused on reasoning, coding assistance,
-long-term memory, document intelligence, and secure agent workflows.
+# NISH
 
 **Think. Learn. Build.**
 

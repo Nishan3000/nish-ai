@@ -16,10 +16,14 @@ from app.core.config import Settings
 
 logger = logging.getLogger(__name__)
 
-# System prompt is defined server-side and prepended to every request.
-# Clients can only send "user"/"assistant" roles (enforced by the schema),
-# so this cannot be overridden from the outside.
-SYSTEM_PROMPT = (
+# The system prompt is defined server-side and prepended to every
+# request. Clients can only send "user"/"assistant" roles (enforced by
+# the schema), so it cannot be overridden from the outside. The real
+# prompt comes from the identity engine (app/core/identity.py); this
+# constant is only the graceful-degradation fallback used if the
+# identity configuration is missing or invalid, so chat keeps working
+# while /api/identity reports the configuration problem.
+FALLBACK_SYSTEM_PROMPT = (
     "You are NISH, a helpful personal AI assistant. "
     "Be accurate, concise, and honest. If you are unsure, say so."
 )
@@ -57,6 +61,23 @@ class OllamaService:
     @property
     def model(self) -> str:
         return self._model
+
+    def _default_system_prompt(self) -> str:
+        """Identity-engine prompt, built with the CURRENT model name.
+
+        Falls back to a minimal safe prompt (and logs the reason) if the
+        identity configuration cannot be loaded — conversations keep
+        working while the problem is surfaced via /api/identity.
+        """
+        from app.core.identity import IdentityConfigError, get_identity_manager
+
+        try:
+            return get_identity_manager().chat_system_prompt(
+                current_model=self._model
+            )
+        except IdentityConfigError as exc:
+            logger.error("Identity configuration problem: %s", exc)
+            return FALLBACK_SYSTEM_PROMPT
 
     async def is_reachable(self) -> bool:
         """Return True if the Ollama server answers at all.
@@ -97,7 +118,7 @@ class OllamaService:
         payload: dict[str, Any] = {
             "model": self._model,
             "messages": [
-                {"role": "system", "content": system_prompt or SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt or self._default_system_prompt()},
                 *messages,
             ],
             "stream": False,  # Phase 1: simple request/response. Streaming later.

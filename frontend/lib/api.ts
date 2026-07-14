@@ -6,6 +6,7 @@
  */
 
 import type { AgentTask, AuditVerify, RepoTree } from "@/types/agent";
+import type { IdentityInfo } from "@/types/identity";
 import type { ChatMessage, ChatResponse, HealthResponse } from "@/types/chat";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -81,6 +82,11 @@ export function sendChat(
 /** Backend + Ollama status. */
 export function getHealth(): Promise<HealthResponse> {
   return request<HealthResponse>("/api/health");
+}
+
+/** Public application identity (name, creator, version, model). */
+export function getIdentity(): Promise<IdentityInfo> {
+  return request<IdentityInfo>("/api/identity");
 }
 
 /* ------------------------------------------------------------ agent --- */

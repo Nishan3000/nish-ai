@@ -14,6 +14,7 @@ const TITLES: Record<string, string> = {
   "/files": "Files",
   "/memory": "Memory",
   "/logs": "Activity Logs",
+  "/about": "About NISH",
   "/settings": "Settings",
 };
 

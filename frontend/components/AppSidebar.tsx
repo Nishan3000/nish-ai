@@ -9,6 +9,7 @@
 
 import {
   Bot,
+  Info,
   FileText,
   Brain,
   ListChecks,
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { href: "/files", label: "Files", icon: FileText },
   { href: "/memory", label: "Memory", icon: Brain },
   { href: "/logs", label: "Activity Logs", icon: ListChecks },
+  { href: "/about", label: "About NISH", icon: Info },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 

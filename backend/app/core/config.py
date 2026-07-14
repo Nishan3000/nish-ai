@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     # Comma-separated list of origins allowed to call this API from a browser.
     cors_origins: str = "http://localhost:3000"
 
+    # --- Identity ---
+    # Path to the identity configuration (public app facts only —
+    # never put secrets in this file).
+    identity_config_path: str = "./identity.json"
+
     # --- Database ---
     # Full SQLAlchemy URL. Compose and .env.example use a local Postgres;
     # tests override this with SQLite. No credentials are hard-coded here

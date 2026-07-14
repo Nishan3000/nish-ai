@@ -6,8 +6,8 @@
  * arrive with the accounts phase.
  */
 
-import { Monitor, Moon, Sun, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Info, Monitor, Moon, Sun, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import ConnectionStatus from "@/components/ConnectionStatus";
 import {
@@ -15,7 +15,8 @@ import {
   useConversations,
   usePreferences,
 } from "@/components/Providers";
-import { apiBaseUrl } from "@/lib/api";
+import { apiBaseUrl, getIdentity } from "@/lib/api";
+import type { IdentityInfo } from "@/types/identity";
 
 function SettingRow({
   title,
@@ -83,6 +84,13 @@ export default function SettingsPage() {
   const { health } = useConnection();
   const { conversations, clearAll } = useConversations();
   const [confirmingClear, setConfirmingClear] = useState(false);
+  const [identity, setIdentity] = useState<IdentityInfo | null>(null);
+
+  useEffect(() => {
+    getIdentity()
+      .then(setIdentity)
+      .catch(() => setIdentity(null)); // offline: section shows placeholders
+  }, []);
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-6">
@@ -141,6 +149,35 @@ export default function SettingsPage() {
           description="Set with NEXT_PUBLIC_API_URL in frontend/.env.local."
         >
           <span className="font-mono text-sm">{apiBaseUrl()}</span>
+        </SettingRow>
+      </section>
+
+      {/* Application identity — read-only: configured on the backend
+          (identity.json); no edit UI exists because there is no secured
+          update endpoint. */}
+      <section
+        className="divide-y rounded-xl border"
+        style={{ borderColor: "var(--line)", background: "var(--surface)" }}
+      >
+        <SettingRow
+          title="Application"
+          description="Identity is configured on the backend and read-only here."
+        >
+          <span className="flex items-center gap-1.5 text-sm font-medium">
+            <Info className="h-3.5 w-3.5" style={{ color: "var(--nova)" }} />
+            {identity ? `${identity.name} v${identity.version}` : "—"}
+          </span>
+        </SettingRow>
+        <SettingRow title="Creator" description="Read-only.">
+          <span className="text-sm">{identity?.creator ?? "—"}</span>
+        </SettingRow>
+        <SettingRow title="Lead developer" description="Read-only.">
+          <span className="text-sm">{identity?.lead_developer ?? "—"}</span>
+        </SettingRow>
+        <SettingRow title="Project started" description="Read-only.">
+          <span className="text-sm">
+            {identity ? String(identity.project_started) : "—"}
+          </span>
         </SettingRow>
       </section>
 
