@@ -9,7 +9,9 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import agent, chat, health
+from sqlalchemy.exc import OperationalError
+
+from app.api import agent, chat, conversations, health
 from app.core.config import get_settings
 
 # Basic structured-ish logging; replaced by proper log config in Phase 9.
@@ -42,3 +44,20 @@ app.add_middleware(
 app.include_router(health.router, prefix=settings.api_prefix)
 app.include_router(chat.router, prefix=settings.api_prefix)
 app.include_router(agent.router, prefix=settings.api_prefix)
+app.include_router(conversations.router, prefix=settings.api_prefix)
+
+
+@app.exception_handler(OperationalError)
+async def database_unavailable(_request, _exc: OperationalError):
+    """Clean 503 instead of a stack trace when PostgreSQL is down."""
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": (
+                "Database unavailable. Is PostgreSQL running? "
+                "Start it with: docker compose up db"
+            )
+        },
+    )

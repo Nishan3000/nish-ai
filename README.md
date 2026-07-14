@@ -116,6 +116,46 @@ nish/
 
 Empty backend folders (`agents/`, `auth/`, `memory/`, …) are reserved for later phases.
 
+## Memory milestone — part 1 (persistent conversations)
+
+Conversations and messages are now stored in PostgreSQL.
+
+### Database setup
+
+Easiest (Docker):
+```bash
+docker compose up db          # starts PostgreSQL with the right user/db
+```
+Or install PostgreSQL yourself and create a database matching
+`DATABASE_URL` in `backend/.env` (see `.env.example`).
+
+### Migrations
+
+```bash
+cd backend
+alembic upgrade head          # creates users, conversations, messages
+```
+
+### New endpoints
+
+```bash
+curl -X POST http://localhost:8000/api/conversations -H "Content-Type: application/json" -d '{}'
+curl http://localhost:8000/api/conversations
+curl -X POST http://localhost:8000/api/conversations/<id>/messages \
+  -H "Content-Type: application/json" -d '{"content": "Hello NISH"}'
+curl -X PATCH http://localhost:8000/api/conversations/<id> \
+  -H "Content-Type: application/json" -d '{"title": "Renamed"}'
+curl -X DELETE http://localhost:8000/api/conversations/<id>
+```
+
+The original stateless `/api/chat` endpoint is unchanged.
+
+### Verifying persistence
+
+Send a couple of messages to a conversation, stop the backend
+(Ctrl+C), start it again, then `GET /api/conversations/<id>` — the
+full history returns from PostgreSQL. Tests: `pytest tests/test_conversations.py`.
+
 ## Agent phase — part 1 (planning & safe inspection)
 
 New endpoints (backend must be running; keep it bound to localhost — there is no auth yet):

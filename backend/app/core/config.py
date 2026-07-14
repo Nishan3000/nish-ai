@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     # Comma-separated list of origins allowed to call this API from a browser.
     cors_origins: str = "http://localhost:3000"
 
+    # --- Database ---
+    # Full SQLAlchemy URL. Compose and .env.example use a local Postgres;
+    # tests override this with SQLite. No credentials are hard-coded here
+    # beyond a development default that matches docker-compose.
+    database_url: str = "postgresql+psycopg://nish:nish@localhost:5432/nish"
+
     # --- Ollama ---
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen3:8b"

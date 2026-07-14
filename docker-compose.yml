@@ -6,14 +6,34 @@
 #
 # Start:  docker compose up --build
 services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      - POSTGRES_USER=nish
+      - POSTGRES_PASSWORD=nish
+      - POSTGRES_DB=nish
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nish"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
   backend:
     build: ./backend
     ports:
       - "8000:8000"
     environment:
+      - DATABASE_URL=postgresql+psycopg://nish:nish@db:5432/nish
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:8b}
       - CORS_ORIGINS=http://localhost:3000
+    depends_on:
+      db:
+        condition: service_healthy
     extra_hosts:
       # Makes host.docker.internal resolve on Linux too (built in on
       # Docker Desktop for Windows/macOS).
@@ -28,3 +48,6 @@ services:
       - "3000:3000"
     depends_on:
       - backend
+
+volumes:
+  pgdata:
