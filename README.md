@@ -1,4 +1,4 @@
-# NISHAN
+# NISHAN Thakuri (Universitry od Chester Student)
 NISH AI
 
 Created and developed by Nishan Thakuri
