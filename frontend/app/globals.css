@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------
+   Nova AI design tokens — light and dark themes.
+
+   The identity carries over from Phase 1: gold always means "the model"
+   (Nova's star, the thinking pulse, assistant accents). Everything else
+   is a neutral, professional scale. Components consume ONLY these
+   variables, so themes switch by toggling the .dark class on <html>.
+--------------------------------------------------------------------- */
+:root {
+  --bg: #f6f6f8;            /* app background */
+  --surface: #ffffff;       /* cards, panels, sidebar */
+  --surface-2: #eeeef2;     /* raised/hover surfaces */
+  --line: #e2e2e9;          /* borders */
+  --text: #1b1d27;          /* primary text */
+  --dim: #676d7e;           /* secondary text */
+  --nova: #a87413;          /* gold, darkened for light-mode contrast */
+  --nova-soft: #a874131f;
+  --ok: #1e7f4f;
+  --warn: #b3423f;
+  --warn-soft: #b3423f14;
+  --focus: #4a5aa8;
+}
+
+.dark {
+  --bg: #0b0e1a;
+  --surface: #12162a;
+  --surface-2: #1b2038;
+  --line: #262d4d;
+  --text: #e9ebf5;
+  --dim: #8d93ab;
+  --nova: #f0b34e;
+  --nova-soft: #f0b34e24;
+  --ok: #7fd6a4;
+  --warn: #e88c8c;
+  --warn-soft: #e88c8c1a;
+  --focus: #9aa8e8;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  height: 100%;
+}
+
+.font-display {
+  font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Message spacing density, controlled from Settings. */
+:root { --msg-gap: 1.25rem; --msg-pad: 0.75rem; }
+[data-density="compact"] { --msg-gap: 0.625rem; --msg-pad: 0.5rem; }
+
+/* Signature: the Nova pulse — shown while the model is thinking. */
+@keyframes nova-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.75; }
+  50%      { transform: scale(1.35); opacity: 1; }
+}
+.nova-pulse { animation: nova-pulse 1.4s ease-in-out infinite; }
+
+/* Typing indicator dots. */
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30%           { transform: translateY(-3px); opacity: 1; }
+}
+.typing-dot { animation: typing-dot 1.2s ease-in-out infinite; }
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nova-pulse, .typing-dot { animation: none; opacity: 1; }
+}
+
+/* Visible keyboard focus everywhere. */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Markdown content inside chat messages. */
+.prose-nova { line-height: 1.65; font-size: 15px; }
+.prose-nova > * + * { margin-top: 0.7em; }
+.prose-nova h1, .prose-nova h2, .prose-nova h3 {
+  font-weight: 600; margin-top: 1.1em;
+}
+.prose-nova h1 { font-size: 1.25em; }
+.prose-nova h2 { font-size: 1.15em; }
+.prose-nova h3 { font-size: 1.05em; }
+.prose-nova ul { list-style: disc; padding-left: 1.4em; }
+.prose-nova ol { list-style: decimal; padding-left: 1.4em; }
+.prose-nova li + li { margin-top: 0.25em; }
+.prose-nova a { color: var(--nova); text-decoration: underline; }
+.prose-nova blockquote {
+  border-left: 3px solid var(--line);
+  padding-left: 0.9em;
+  color: var(--dim);
+}
+.prose-nova code {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.prose-nova pre { margin: 0; }
+.prose-nova pre code {
+  background: none; border: none; padding: 0; font-size: 13px;
+  display: block; line-height: 1.55;
+}
+.prose-nova table { border-collapse: collapse; width: 100%; font-size: 0.95em; }
+.prose-nova th, .prose-nova td {
+  border: 1px solid var(--line); padding: 0.4em 0.7em; text-align: left;
+}
+.prose-nova th { background: var(--surface-2); font-weight: 600; }
+.prose-nova hr { border: none; border-top: 1px solid var(--line); }
+
+/* Thin themed scrollbars. */
+* { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }

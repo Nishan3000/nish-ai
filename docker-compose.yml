@@ -1,0 +1,30 @@
+# Nova AI — Phase 1
+#
+# Runs the backend and frontend in containers. Ollama stays on your HOST
+# machine (GPU access from containers is platform-specific, so Phase 1
+# keeps it simple): containers reach it via host.docker.internal.
+#
+# Start:  docker compose up --build
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:8b}
+      - CORS_ORIGINS=http://localhost:3000
+    extra_hosts:
+      # Makes host.docker.internal resolve on Linux too (built in on
+      # Docker Desktop for Windows/macOS).
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend

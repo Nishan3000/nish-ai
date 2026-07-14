@@ -1,0 +1,18 @@
+# Nova AI — Phase 1 backend dependencies
+# Python 3.11+ (developed and tested on 3.12)
+
+# Web framework
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
+
+# Data validation & settings
+pydantic==2.10.6
+pydantic-settings==2.7.1
+
+# Async HTTP client (used to talk to Ollama)
+httpx==0.28.1
+
+# --- Development / testing ---
+pytest==8.3.4
+pytest-asyncio==0.25.3
+respx==0.22.0        # mocks httpx requests so tests don't need a live Ollama

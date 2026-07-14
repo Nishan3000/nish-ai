@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------
+   Nova AI design tokens
+   A deep-indigo "void" with starlight text. Gold is reserved for Nova's
+   own identity (wordmark, thinking pulse, assistant rule) so it always
+   means "the model". Cool slate-blue handles chrome and status.
+--------------------------------------------------------------------- */
+:root {
+  --void: #0b0e1a;        /* page background */
+  --panel: #12162a;       /* surfaces */
+  --panel-raised: #1a1f38;
+  --line: #262d4d;        /* borders */
+  --starlight: #e9ebf5;   /* primary text */
+  --dim: #8d93ab;         /* secondary text */
+  --nova: #f0b34e;        /* gold — the model's colour */
+  --nova-soft: #f0b34e2b; /* gold at low alpha for glows */
+  --ok: #7fd6a4;
+  --warn: #e88c8c;
+
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html,
+body {
+  background: var(--void);
+  color: var(--starlight);
+  font-family: var(--font-body);
+  height: 100%;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* Signature: the Nova pulse — shown while the model is thinking. */
+@keyframes nova-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.75; }
+  50%      { transform: scale(1.35); opacity: 1; }
+}
+
+.nova-pulse {
+  animation: nova-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nova-pulse {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* Thin scrollbar that matches the theme (WebKit + Firefox). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+*::-webkit-scrollbar { width: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
