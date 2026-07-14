@@ -1,5 +1,5 @@
 /**
- * API client for the Nova AI backend.
+ * API client for the NISH backend.
  *
  * One place owns the base URL (from NEXT_PUBLIC_API_URL), JSON handling,
  * abort support, and error normalization — components never touch fetch.
@@ -41,7 +41,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       throw new AbortedError();
     }
     throw new ApiError(
-      `Cannot reach the Nova backend at ${API_URL}. Is it running?`,
+      `Cannot reach the NISH backend at ${API_URL}. Is it running?`,
     );
   }
 

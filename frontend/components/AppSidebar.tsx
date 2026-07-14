@@ -25,7 +25,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
-import NovaLogo from "@/components/NovaLogo";
+import NishLogo from "@/components/NishLogo";
 import { useConversations } from "@/components/Providers";
 
 const NAV_ITEMS = [
@@ -77,10 +77,10 @@ export default function AppSidebar({
     >
       {/* Brand */}
       <div className="flex items-center gap-2 px-3 py-4">
-        <NovaLogo className="h-5 w-5 shrink-0" />
+        <NishLogo className="h-5 w-5 shrink-0" />
         {!collapsed && (
           <span className="font-display text-lg font-medium tracking-wide">
-            Nova AI
+            NISH
           </span>
         )}
       </div>

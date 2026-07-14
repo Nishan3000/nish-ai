@@ -4,7 +4,7 @@
 
 import { Code2, FolderSearch, ListTodo, FileSearch } from "lucide-react";
 
-import NovaLogo from "@/components/NovaLogo";
+import NishLogo from "@/components/NishLogo";
 
 const EXAMPLES = [
   {
@@ -39,11 +39,17 @@ export default function WelcomeScreen({
 }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-6 px-4 text-center">
-      <NovaLogo className="h-8 w-8" />
+      <NishLogo className="h-8 w-8" />
       <div>
-        <h2 className="font-display text-3xl font-medium">Nova AI</h2>
+        <h2 className="font-display text-3xl font-medium">NISH</h2>
         <p
-          className="mx-auto mt-2 max-w-md text-sm leading-relaxed"
+          className="font-display mt-1 text-sm font-medium tracking-widest uppercase"
+          style={{ color: "var(--nova)" }}
+        >
+          Think. Learn. Build.
+        </p>
+        <p
+          className="mx-auto mt-3 max-w-md text-sm leading-relaxed"
           style={{ color: "var(--dim)" }}
         >
           Your private assistant, running on your own machine. Ask questions,

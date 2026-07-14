@@ -1,4 +1,4 @@
-# Nova AI frontend — multi-stage build for a small production image
+# NISH frontend — multi-stage build for a small production image
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
@@ -13,10 +13,10 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 # Non-root user
-RUN addgroup -S nova && adduser -S nova -G nova
+RUN addgroup -S nish && adduser -S nish -G nish
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-USER nova
+USER nish
 EXPOSE 3000
 CMD ["node", "server.js"]

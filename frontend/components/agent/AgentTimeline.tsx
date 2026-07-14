@@ -192,7 +192,7 @@ export default function AgentTimeline({ task }: { task: AgentTask }) {
               style={{ borderColor: "var(--line)", background: "var(--surface-2)" }}
             >
               <p className="text-xs" style={{ color: "var(--dim)" }}>
-                Code changes are not implemented yet — Nova can currently plan
+                Code changes are not implemented yet — NISH can currently plan
                 and read, not write. Approval will unlock once the
                 modification phase ships.
               </p>

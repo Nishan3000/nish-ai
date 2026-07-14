@@ -6,7 +6,7 @@
  * is honest about that rather than pretending).
  *
  * Enter sends, Shift+Enter inserts a newline. Send is disabled when the
- * input is empty; while Nova is thinking the button becomes Stop, which
+ * input is empty; while NISH is thinking the button becomes Stop, which
  * aborts the in-flight request.
  */
 
@@ -63,10 +63,10 @@ export default function ChatComposer({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Message Nova…"
+          placeholder="Message NISH…"
           rows={1}
           maxLength={8000}
-          aria-label="Message Nova"
+          aria-label="Message NISH"
           className="max-h-[200px] flex-1 resize-none bg-transparent px-2 py-2 text-[15px] outline-none placeholder:text-[var(--dim)]"
         />
         {busy ? (

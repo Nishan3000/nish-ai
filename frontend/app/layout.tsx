@@ -5,8 +5,8 @@ import AppShell from "@/components/AppShell";
 import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "Nova AI",
-  description: "A private, self-hosted AI assistant.",
+  title: "NISH",
+  description: "NISH — Think. Learn. Build. A private, self-hosted AI assistant.",
 };
 
 /**

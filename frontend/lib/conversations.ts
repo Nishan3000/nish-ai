@@ -8,6 +8,8 @@
 
 import type { Conversation, StoredMessage } from "@/types/conversation";
 
+// Legacy key name kept on purpose: renaming it would silently delete
+// existing users' saved conversations.
 const STORAGE_KEY = "nova.conversations.v1";
 const MAX_CONVERSATIONS = 100;
 

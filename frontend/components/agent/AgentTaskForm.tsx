@@ -9,7 +9,7 @@
 import { Bot, Square } from "lucide-react";
 import { useState } from "react";
 
-import NovaLogo from "@/components/NovaLogo";
+import NishLogo from "@/components/NishLogo";
 
 export default function AgentTaskForm({
   onSubmit,
@@ -60,7 +60,7 @@ export default function AgentTaskForm({
       />
       <div className="mt-3 flex items-center justify-between gap-3">
         <p className="text-xs" style={{ color: "var(--dim)" }}>
-          Nova will inspect the workspace and produce a step-by-step plan for
+          NISH will inspect the workspace and produce a step-by-step plan for
           your review. Nothing is modified.
         </p>
         {busy ? (
@@ -89,7 +89,7 @@ export default function AgentTaskForm({
           style={{ background: "var(--nova-soft)" }}
           aria-live="polite"
         >
-          <NovaLogo pulsing />
+          <NishLogo pulsing />
           Planning with your local model — this can take a minute or two…
         </div>
       )}

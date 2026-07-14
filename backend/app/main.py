@@ -1,4 +1,4 @@
-"""Nova AI backend — application entrypoint.
+"""NISH backend — application entrypoint.
 
 Run in development with:
     uvicorn app.main:app --reload --port 8000

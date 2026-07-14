@@ -103,7 +103,7 @@ export default function AgentPage() {
         >
           <h2 className="mb-2 flex items-center gap-2 text-sm font-medium">
             <FolderTree className="h-4 w-4" style={{ color: "var(--nova)" }} />
-            Workspace files Nova can inspect
+            Workspace files NISH can inspect
           </h2>
           {loading ? (
             <p className="text-sm" style={{ color: "var(--dim)" }}>
@@ -186,7 +186,7 @@ export default function AgentPage() {
           </p>
         ) : tasks.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--dim)" }}>
-            No tasks yet. Describe one above — Nova will plan it without
+            No tasks yet. Describe one above — NISH will plan it without
             touching any files.
           </p>
         ) : (

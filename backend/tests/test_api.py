@@ -47,7 +47,7 @@ def test_chat_returns_model_reply() -> None:
     respx.post(OLLAMA_CHAT_URL).mock(
         return_value=httpx.Response(
             200,
-            json={"message": {"role": "assistant", "content": "Hello from Nova!"}},
+            json={"message": {"role": "assistant", "content": "Hello from NISH!"}},
         )
     )
     response = client.post(
@@ -56,7 +56,7 @@ def test_chat_returns_model_reply() -> None:
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["reply"] == "Hello from Nova!"
+    assert body["reply"] == "Hello from NISH!"
     assert body["model"] == settings.ollama_model
 
 

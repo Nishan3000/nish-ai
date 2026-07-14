@@ -2,7 +2,7 @@
 
 /**
  * One chat message. User messages: raised bubble on the right, plain
- * text. Nova's replies: left-aligned with the gold rule, rendered as
+ * text. NISH's replies: left-aligned with the gold rule, rendered as
  * markdown. Timestamps appear on hover (title) — visible chrome only
  * when useful.
  */

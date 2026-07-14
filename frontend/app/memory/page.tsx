@@ -12,7 +12,7 @@ export default function MemoryPage() {
       </span>
       <h2 className="font-display text-xl font-medium">Memory</h2>
       <p className="max-w-md text-sm leading-relaxed" style={{ color: "var(--dim)" }}>
-        Long-term memory is planned for a later phase. Nova will remember
+        Long-term memory is planned for a later phase. NISH will remember
         useful details across conversations using semantic search over a
         local database — nothing stored in the cloud. For now, chats are
         kept only in this browser.

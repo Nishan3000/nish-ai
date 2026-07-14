@@ -1,4 +1,6 @@
-# Nova AI
+# NISH
+
+**Think. Learn. Build.**
 
 A private, self-hosted AI assistant. Local models via Ollama, FastAPI backend, Next.js frontend.
 
@@ -106,7 +108,7 @@ Frontend: http://localhost:3000 · Backend: http://localhost:8000/api/health
 ## Project layout
 
 ```
-nova-ai/
+nish/
   backend/    FastAPI + Ollama service (Python)
   frontend/   Next.js chat UI (TypeScript)
   docker-compose.yml
@@ -120,7 +122,7 @@ New endpoints (backend must be running; keep it bound to localhost — there is 
 
 ```bash
 # Point the agent at a project to inspect (default: backend/workspace)
-# then create a task — Nova plans it using your local model:
+# then create a task — NISH plans it using your local model:
 curl -X POST http://localhost:8000/api/agent/tasks \
   -H "Content-Type: application/json" \
   -d '{"description": "Add input validation to the user endpoints"}'

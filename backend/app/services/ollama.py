@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # Clients can only send "user"/"assistant" roles (enforced by the schema),
 # so this cannot be overridden from the outside.
 SYSTEM_PROMPT = (
-    "You are Nova, a helpful personal AI assistant. "
+    "You are NISH, a helpful personal AI assistant. "
     "Be accurate, concise, and honest. If you are unsure, say so."
 )
 

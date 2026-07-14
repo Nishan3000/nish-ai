@@ -88,6 +88,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("dark");
   const [density, setDensityState] = useState<Density>("comfortable");
 
+  // The "nova.*" localStorage keys are legacy names kept on purpose so
+  // existing users' preferences survive the rebrand.
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("nova.theme");
     const storedDensity = window.localStorage.getItem("nova.density");

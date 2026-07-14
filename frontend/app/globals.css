@@ -1,12 +1,14 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------
-   Nova AI design tokens — light and dark themes.
+   NISH design tokens — light and dark themes.
 
    The identity carries over from Phase 1: gold always means "the model"
-   (Nova's star, the thinking pulse, assistant accents). Everything else
+   (NISH's star, the thinking pulse, assistant accents). Everything else
    is a neutral, professional scale. Components consume ONLY these
    variables, so themes switch by toggling the .dark class on <html>.
+   (Token names like --nova and .nova-pulse are legacy internal
+   identifiers, kept to avoid churn — they are never user-visible.)
 --------------------------------------------------------------------- */
 :root {
   --bg: #f6f6f8;            /* app background */
@@ -54,7 +56,7 @@ body {
 :root { --msg-gap: 1.25rem; --msg-pad: 0.75rem; }
 [data-density="compact"] { --msg-gap: 0.625rem; --msg-pad: 0.5rem; }
 
-/* Signature: the Nova pulse — shown while the model is thinking. */
+/* Signature: the NISH pulse — shown while the model is thinking. */
 @keyframes nova-pulse {
   0%, 100% { transform: scale(1); opacity: 0.75; }
   50%      { transform: scale(1.35); opacity: 1; }

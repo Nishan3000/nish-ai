@@ -1,6 +1,6 @@
-# Nova AI — Phase 1
+# NISH — Phase 1
 #
-# Runs the backend and frontend in containers. Ollama stays on your HOST
+# Runs the NISH backend and frontend in containers. Ollama stays on your HOST
 # machine (GPU access from containers is platform-specific, so Phase 1
 # keeps it simple): containers reach it via host.docker.internal.
 #

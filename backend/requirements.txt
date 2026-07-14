@@ -1,4 +1,4 @@
-# Nova AI — Phase 1 backend dependencies
+# NISH — Phase 1 backend dependencies
 # Python 3.11+ (developed and tested on 3.12)
 
 # Web framework

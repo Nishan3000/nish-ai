@@ -14,7 +14,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Runtime settings for the Nova AI backend."""
+    """Runtime settings for the NISH backend."""
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     )
 
     # --- Application ---
-    app_name: str = "Nova AI"
+    app_name: str = "NISH"
     environment: str = "development"  # development | production
     api_prefix: str = "/api"
 
@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     # --- Agent (autonomous coding) ---
     # The ONLY directory tree the agent may read. Everything outside it is
     # denied by PathGuard, no exceptions. Point this at the project you
-    # want Nova to work on.
+    # want NISH to work on.
     agent_workspace_root: str = "./workspace"
     # Append-only audit log (JSONL, hash-chained).
     agent_audit_log_path: str = "./audit/agent-audit.jsonl"

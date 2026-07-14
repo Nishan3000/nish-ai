@@ -1,5 +1,5 @@
 {
-  "name": "nova-ai-frontend",
+  "name": "nish-frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "lucide-react": "^1.24.0",
-    "next": "15.1.6",
+    "next": "^16.2.10",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",

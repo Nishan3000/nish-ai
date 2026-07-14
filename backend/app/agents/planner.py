@@ -34,7 +34,7 @@ from app.tools.repo_reader import RepoReader
 
 logger = logging.getLogger(__name__)
 
-PLANNER_SYSTEM_PROMPT = """You are the planning module of Nova AI, an \
+PLANNER_SYSTEM_PROMPT = """You are the planning module of NISH, an \
 autonomous coding assistant. You produce implementation plans for software \
 tasks. You NEVER write code at this stage; you only plan.
 

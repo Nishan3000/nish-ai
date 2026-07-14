@@ -13,7 +13,7 @@ export default function FilesPage() {
       <h2 className="font-display text-xl font-medium">Files</h2>
       <p className="max-w-md text-sm leading-relaxed" style={{ color: "var(--dim)" }}>
         Document uploads arrive in a later phase. You&apos;ll be able to add
-        PDFs, Word files, spreadsheets, and text documents, then ask Nova
+        PDFs, Word files, spreadsheets, and text documents, then ask NISH
         questions about them. Everything will be processed locally.
       </p>
     </div>

@@ -53,7 +53,7 @@ export default function TopHeader({
           <Menu className="h-4 w-4" />
         </button>
         <h1 className="font-display text-sm font-medium">
-          {TITLES[pathname] ?? "Nova AI"}
+          {TITLES[pathname] ?? "NISH"}
         </h1>
       </div>
       <div className="flex items-center gap-1">
