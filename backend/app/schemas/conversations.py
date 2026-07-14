@@ -10,6 +10,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.memories import MemoryUsed
+
 
 class ConversationCreate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=120)
@@ -60,3 +62,6 @@ class SendMessageResponse(BaseModel):
     user_message: MessageOut
     assistant_message: MessageOut
     model: str
+    # Long-term memories injected into this response's context (empty when
+    # none were relevant). Additive field: older clients simply ignore it.
+    memories_used: list[MemoryUsed] = []

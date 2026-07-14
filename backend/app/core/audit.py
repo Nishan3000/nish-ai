@@ -18,6 +18,7 @@ audit logging.
 """
 
 import hashlib
+from functools import lru_cache
 import json
 import logging
 import re
@@ -155,3 +156,14 @@ class AuditLogger:
                     return False, f"line {line_number}: record was modified"
                 prev = stored_hash
         return True, "chain intact"
+
+
+@lru_cache
+def get_audit_logger(log_path: str) -> "AuditLogger":
+    """One AuditLogger per file per process.
+
+    Critical for chain integrity: two independent instances appending to
+    the same file would each track their own last-hash and interleave a
+    broken chain. Every component must obtain its logger here.
+    """
+    return AuditLogger(log_path)

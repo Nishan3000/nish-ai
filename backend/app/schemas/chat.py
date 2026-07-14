@@ -10,6 +10,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.memories import MemoryUsed
+
 # Only these roles are accepted from the client. "system" is intentionally
 # excluded: the system prompt is owned by the backend, so a client cannot
 # inject or override it. (This is our first, small prompt-injection guard.)
@@ -34,6 +36,9 @@ class ChatResponse(BaseModel):
 
     reply: str
     model: str
+    # Long-term memories injected into this response's context (empty when
+    # none were relevant). Additive field: older clients simply ignore it.
+    memories_used: list[MemoryUsed] = []
 
 
 class HealthResponse(BaseModel):

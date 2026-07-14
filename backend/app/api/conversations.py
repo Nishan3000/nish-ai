@@ -45,6 +45,8 @@ from app.schemas.conversations import (
     SendMessageRequest,
     SendMessageResponse,
 )
+from app.schemas.memories import MemoryUsed
+from app.services import memory as memory_service
 from app.services.ollama import OllamaError, OllamaService
 
 logger = logging.getLogger(__name__)
@@ -197,6 +199,11 @@ async def send_message(
 
     conversation = _owned_conversation(db, user, conversation_id)
 
+    # Explicit memory commands ("Remember this: …", "Forget this: …",
+    # "What do you remember about me?") are handled deterministically in
+    # code — the exchange is still persisted like any other message.
+    command = memory_service.handle_memory_command(db, user, body.content)
+
     user_message = Message(
         conversation_id=conversation.id, role="user", content=body.content
     )
@@ -211,6 +218,21 @@ async def send_message(
     db.commit()
     db.refresh(user_message)
 
+    if command is not None:
+        assistant_message = Message(
+            conversation_id=conversation.id,
+            role="assistant",
+            content=command.reply,
+        )
+        db.add(assistant_message)
+        db.commit()
+        db.refresh(assistant_message)
+        return SendMessageResponse(
+            user_message=MessageOut.model_validate(user_message),
+            assistant_message=MessageOut.model_validate(assistant_message),
+            model=settings.ollama_model,
+        )
+
     # Build the model context from the STORED history (most recent N).
     history_rows = db.scalars(
         select(Message)
@@ -223,9 +245,16 @@ async def send_message(
         for row in reversed(history_rows)
     ]
 
+    # Retrieve relevant long-term memories for THIS prompt and inject
+    # them as a clearly-labelled untrusted block (see build_memory_context).
+    retrieved = memory_service.retrieve_relevant(db, user, body.content)
+    memory_context = (
+        memory_service.build_memory_context(retrieved) if retrieved else None
+    )
+
     service = OllamaService(settings)
     try:
-        reply_text = await service.chat(history)
+        reply_text = await service.chat(history, memory_context=memory_context)
     except OllamaError as exc:
         # The user message is already saved; surface a clean error.
         raise HTTPException(status_code=exc.status_code, detail=exc.message)
@@ -241,4 +270,5 @@ async def send_message(
         user_message=MessageOut.model_validate(user_message),
         assistant_message=MessageOut.model_validate(assistant_message),
         model=service.model,
+        memories_used=[MemoryUsed.model_validate(m) for m in retrieved],
     )

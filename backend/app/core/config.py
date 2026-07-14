@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     max_message_chars: int = 8_000     # per single message
     max_history_messages: int = 40     # per request
 
+    # --- Long-term memory ---
+    memory_max_content_chars: int = 2_000   # per memory
+    memory_max_per_user: int = 1_000        # total active memories
+    memory_max_retrieved: int = 5           # injected per prompt
+
     # --- Agent (autonomous coding) ---
     # The ONLY directory tree the agent may read. Everything outside it is
     # denied by PathGuard, no exceptions. Point this at the project you

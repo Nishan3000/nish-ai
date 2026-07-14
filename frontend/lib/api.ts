@@ -7,6 +7,7 @@
 
 import type { AgentTask, AuditVerify, RepoTree } from "@/types/agent";
 import type { IdentityInfo } from "@/types/identity";
+import type { Memory, MemoryType } from "@/types/memory";
 import type { ChatMessage, ChatResponse, HealthResponse } from "@/types/chat";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -87,6 +88,55 @@ export function getHealth(): Promise<HealthResponse> {
 /** Public application identity (name, creator, version, model). */
 export function getIdentity(): Promise<IdentityInfo> {
   return request<IdentityInfo>("/api/identity");
+}
+
+/* --------------------------------------------------------- memories --- */
+
+export function listMemories(params?: {
+  memory_type?: MemoryType;
+  q?: string;
+}): Promise<Memory[]> {
+  const search = new URLSearchParams();
+  if (params?.memory_type) search.set("memory_type", params.memory_type);
+  if (params?.q) search.set("q", params.q);
+  const suffix = search.size > 0 ? `?${search.toString()}` : "";
+  return request<Memory[]>(`/api/memories${suffix}`);
+}
+
+export function createMemory(body: {
+  memory_type: MemoryType;
+  content: string;
+  importance_score?: number;
+}): Promise<Memory> {
+  return request<Memory>("/api/memories", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateMemory(
+  id: string,
+  body: Partial<{
+    content: string;
+    memory_type: MemoryType;
+    importance_score: number;
+    is_active: boolean;
+  }>,
+): Promise<Memory> {
+  return request<Memory>(`/api/memories/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteMemory(id: string): Promise<void> {
+  return request<void>(`/api/memories/${id}`, { method: "DELETE" });
+}
+
+export function clearAllMemories(): Promise<{ cleared: number }> {
+  return request<{ cleared: number }>("/api/memories?confirm=true", {
+    method: "DELETE",
+  });
 }
 
 /* ------------------------------------------------------------ agent --- */

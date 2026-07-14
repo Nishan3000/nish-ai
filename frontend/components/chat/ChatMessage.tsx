@@ -7,6 +7,8 @@
  * when useful.
  */
 
+import { Brain } from "lucide-react";
+
 import Markdown from "@/components/Markdown";
 import type { StoredMessage } from "@/types/conversation";
 
@@ -48,6 +50,19 @@ export default function ChatMessage({ message }: { message: StoredMessage }) {
         }}
       >
         <Markdown content={message.content} />
+        {message.memoriesUsed && message.memoriesUsed.length > 0 && (
+          <p
+            className="mt-2 flex items-center gap-1.5 text-xs"
+            style={{ color: "var(--dim)" }}
+            title={message.memoriesUsed
+              .map((memory) => memory.content)
+              .join("\n")}
+          >
+            <Brain className="h-3 w-3" style={{ color: "var(--nova)" }} />
+            Used {message.memoriesUsed.length} saved{" "}
+            {message.memoriesUsed.length === 1 ? "memory" : "memories"}
+          </p>
+        )}
       </div>
     </div>
   );

@@ -67,6 +67,7 @@ export default function ChatView() {
           role: "assistant",
           content: response.reply,
           at: Date.now(),
+          memoriesUsed: response.memories_used,
         };
         setMessages(targetId, [...history, reply]);
       } catch (err) {

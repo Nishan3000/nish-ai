@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy.exc import OperationalError
 
-from app.api import agent, chat, conversations, health, identity
+from app.api import agent, chat, conversations, health, identity, memories
 from app.core.config import get_settings
 
 # Basic structured-ish logging; replaced by proper log config in Phase 9.
@@ -56,6 +56,7 @@ app.include_router(chat.router, prefix=settings.api_prefix)
 app.include_router(agent.router, prefix=settings.api_prefix)
 app.include_router(conversations.router, prefix=settings.api_prefix)
 app.include_router(identity.router, prefix=settings.api_prefix)
+app.include_router(memories.router, prefix=settings.api_prefix)
 
 
 @app.exception_handler(OperationalError)

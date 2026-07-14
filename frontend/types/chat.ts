@@ -10,9 +10,13 @@ export interface ChatMessage {
   content: string;
 }
 
+import type { MemoryUsed } from "@/types/memory";
+
 export interface ChatResponse {
   reply: string;
   model: string;
+  /** Long-term memories injected into this reply (may be empty). */
+  memories_used: MemoryUsed[];
 }
 
 export interface HealthResponse {

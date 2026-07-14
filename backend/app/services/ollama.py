@@ -96,6 +96,7 @@ class OllamaService:
         self,
         messages: list[dict[str, str]],
         system_prompt: str | None = None,
+        memory_context: str | None = None,
     ) -> str:
         """Send a conversation to Ollama and return the assistant's reply.
 
@@ -106,6 +107,12 @@ class OllamaService:
             system_prompt: optional override. Used by internal agents
                 (e.g. the planner); the public chat endpoint never sets
                 this, so users still cannot influence the system prompt.
+            memory_context: optional pre-formatted block of retrieved
+                long-term memories. Inserted as a SECOND system-level
+                message AFTER the identity prompt and clearly labelled
+                untrusted data — never merged into the identity prompt,
+                so identity/security rules always come first and stored
+                text cannot override them.
 
         Returns:
             The assistant's reply text.
@@ -115,12 +122,16 @@ class OllamaService:
             OllamaError: server reachable but returned an error
                 (e.g. model not pulled yet).
         """
+        prompt_messages: list[dict[str, str]] = [
+            {"role": "system", "content": system_prompt or self._default_system_prompt()}
+        ]
+        if memory_context:
+            prompt_messages.append({"role": "system", "content": memory_context})
+        prompt_messages.extend(messages)
+
         payload: dict[str, Any] = {
             "model": self._model,
-            "messages": [
-                {"role": "system", "content": system_prompt or self._default_system_prompt()},
-                *messages,
-            ],
+            "messages": prompt_messages,
             "stream": False,  # Phase 1: simple request/response. Streaming later.
         }
 

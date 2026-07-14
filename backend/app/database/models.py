@@ -26,7 +26,9 @@ filters by user_id — the ownership checks are real and tested; only the
 import uuid
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
+    Float,
     DateTime,
     ForeignKey,
     Index,
@@ -123,6 +125,76 @@ class Message(Base):
     )
 
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
+
+
+MEMORY_TYPES = (
+    "user_preference",
+    "personal_fact",
+    "project_fact",
+    "goal",
+    "correction",
+    "successful_outcome",
+    "failed_outcome",
+    "custom",
+)
+
+MEMORY_SOURCES = ("manual", "chat_command")
+
+
+class Memory(Base):
+    """One long-term memory. Separate from conversation history.
+
+    * `is_active` implements soft deletion: "forgotten" memories stay in
+      the table (auditable, recoverable) but are excluded from listing
+      and retrieval by default.
+    * `project_id` is a plain nullable UUID for now — the projects table
+      (and its FK) arrives with the projects milestone; storing the
+      association early keeps this schema stable.
+    * No embedding column yet, deliberately: pgvector lands in the next
+      part with its own migration and the proper VECTOR type — a dead
+      placeholder column now would just be churn.
+    """
+
+    __tablename__ = "memories"
+    __table_args__ = (
+        CheckConstraint(
+            "memory_type IN ('user_preference','personal_fact',"
+            "'project_fact','goal','correction','successful_outcome',"
+            "'failed_outcome','custom')",
+            name="ck_memories_type",
+        ),
+        CheckConstraint(
+            "importance_score >= 0 AND importance_score <= 1",
+            name="ck_memories_importance",
+        ),
+        Index("ix_memories_user_active", "user_id", "is_active"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    project_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    memory_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    importance_score: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.5
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    created_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
 
 LOCAL_USERNAME = "local"

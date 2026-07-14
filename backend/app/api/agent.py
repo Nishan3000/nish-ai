@@ -35,7 +35,7 @@ from app.agents.models import (
 from app.agents.planner import PlannerAgent, PlanningError
 from app.agents.state_machine import transition
 from app.agents.task_store import TaskNotFoundError, TaskStore
-from app.core.audit import AuditLogger
+from app.core.audit import get_audit_logger
 from app.core.config import get_settings
 from app.services.ollama import OllamaService
 from app.tools.path_guard import PathAccessError, PathGuard
@@ -60,7 +60,7 @@ class AgentContext:
         workspace.mkdir(parents=True, exist_ok=True)
 
         self.settings = settings
-        self.audit = AuditLogger(settings.agent_audit_log_path)
+        self.audit = get_audit_logger(settings.agent_audit_log_path)
         self.guard = PathGuard(workspace)
         self.registry = build_default_registry(self.audit)
         self.reader = RepoReader(
