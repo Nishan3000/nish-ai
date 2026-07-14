@@ -1,4 +1,10 @@
-# NISH
+# NISHAN
+NISH AI
+
+Created and developed by Nishan Thakuri
+
+An AI operating system focused on reasoning, coding assistance,
+long-term memory, document intelligence, and secure agent workflows.
 
 **Think. Learn. Build.**
 
