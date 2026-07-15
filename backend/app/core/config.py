@@ -57,6 +57,18 @@ class Settings(BaseSettings):
     memory_max_per_user: int = 1_000        # total active memories
     memory_max_retrieved: int = 5           # injected per prompt
 
+    # --- Coding agent (v0.6) ---
+    coding_workspace_dir: str = "./workspaces"
+    coding_command_timeout_seconds: float = 120.0
+    coding_max_output_bytes: int = 20_000       # per command stream
+    coding_max_file_bytes: int = 512_000        # per source file
+    coding_max_repo_files: int = 5_000
+    coding_max_repo_bytes: int = 100_000_000
+    coding_max_modified_files: int = 8          # per proposal
+    coding_max_patch_bytes: int = 200_000       # total new content
+    coding_workspace_ttl_hours: int = 24
+    coding_generator_max_attempts: int = 2
+
     # --- Agent (autonomous coding) ---
     # The ONLY directory tree the agent may read. Everything outside it is
     # denied by PathGuard, no exceptions. Point this at the project you

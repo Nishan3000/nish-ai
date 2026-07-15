@@ -165,8 +165,18 @@ def evaluate_command(raw_command: str) -> PolicyResult:
         return PolicyResult(Decision.BLOCKED, "only 'pip install' is recognised")
 
     if executable == "npm":
-        if len(argv) >= 2 and argv[1] in {"test", "run"}:
-            return PolicyResult(Decision.ALLOWED, "npm test/run is allowlisted", argv)
+        if len(argv) >= 2 and argv[1] == "test":
+            return PolicyResult(Decision.ALLOWED, "npm test is allowlisted", argv)
+        if len(argv) >= 3 and argv[1] == "run" and argv[2] in {
+            "lint", "build", "typecheck", "test",
+        }:
+            # npm run is restricted to KNOWN script names: an arbitrary
+            # script name would be arbitrary code execution by proxy.
+            return PolicyResult(
+                Decision.ALLOWED, f"npm run {argv[2]} is allowlisted", argv
+            )
+        if len(argv) == 2 and argv[1] == "run":
+            return PolicyResult(Decision.BLOCKED, "npm run needs an allowlisted script")
         if len(argv) >= 2 and argv[1] in {"install", "ci"}:
             return PolicyResult(
                 Decision.REQUIRES_APPROVAL,
@@ -174,6 +184,13 @@ def evaluate_command(raw_command: str) -> PolicyResult:
                 argv,
             )
         return PolicyResult(Decision.BLOCKED, "npm subcommand not allowlisted")
+
+    if executable == "npx":
+        # Exactly one npx invocation is recognised: the TypeScript
+        # no-emit check. Anything else via npx is arbitrary execution.
+        if list(argv[1:]) == ["tsc", "--noEmit"]:
+            return PolicyResult(Decision.ALLOWED, "npx tsc --noEmit is allowlisted", argv)
+        return PolicyResult(Decision.BLOCKED, "only 'npx tsc --noEmit' is permitted")
 
     if executable == "git":
         if len(argv) < 2:

@@ -8,6 +8,11 @@
 import type { AgentTask, AuditVerify, RepoTree } from "@/types/agent";
 import type { IdentityInfo } from "@/types/identity";
 import type { Memory, MemoryType } from "@/types/memory";
+import type {
+  CodingProject,
+  CodingTask,
+  ProjectScan,
+} from "@/types/coding";
 import type { ChatMessage, ChatResponse, HealthResponse } from "@/types/chat";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -137,6 +142,83 @@ export function clearAllMemories(): Promise<{ cleared: number }> {
   return request<{ cleared: number }>("/api/memories?confirm=true", {
     method: "DELETE",
   });
+}
+
+/* ----------------------------------------------------------- coding --- */
+
+export function listCodingProjects(): Promise<CodingProject[]> {
+  return request<CodingProject[]>("/api/coding/projects");
+}
+
+export function registerCodingProject(body: {
+  name: string;
+  root_path: string;
+  description?: string;
+}): Promise<CodingProject> {
+  return request<CodingProject>("/api/coding/projects", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function scanCodingProject(id: string): Promise<ProjectScan> {
+  return request<ProjectScan>(`/api/coding/projects/${id}/scan`, {
+    method: "POST",
+  });
+}
+
+export function createCodingTask(
+  body: { project_id: string; description: string },
+  signal?: AbortSignal,
+): Promise<CodingTask> {
+  return request<CodingTask>("/api/coding/tasks", {
+    method: "POST",
+    body: JSON.stringify(body),
+    signal,
+  });
+}
+
+export function listCodingTasks(projectId?: string): Promise<CodingTask[]> {
+  const suffix = projectId ? `?project_id=${projectId}` : "";
+  return request<CodingTask[]>(`/api/coding/tasks${suffix}`);
+}
+
+export function getCodingTask(id: string): Promise<CodingTask> {
+  return request<CodingTask>(`/api/coding/tasks/${id}`);
+}
+
+export function codingTaskStage(
+  id: string,
+  stage: "workspace" | "generate" | "review",
+  signal?: AbortSignal,
+): Promise<CodingTask> {
+  return request<CodingTask>(`/api/coding/tasks/${id}/${stage}`, {
+    method: "POST",
+    signal,
+  });
+}
+
+export function validateCodingTask(
+  id: string,
+  commands: string[],
+  signal?: AbortSignal,
+): Promise<CodingTask> {
+  return request<CodingTask>(`/api/coding/tasks/${id}/validate`, {
+    method: "POST",
+    body: JSON.stringify({ commands }),
+    signal,
+  });
+}
+
+export function decideCodingTask(
+  id: string,
+  decision: "approved" | "rejected",
+  note = "",
+): Promise<{ decision: string; message: string }> {
+  return request<{ decision: string; message: string }>(
+    `/api/coding/tasks/${id}/decision`,
+    { method: "POST", body: JSON.stringify({ decision, note }) },
+  );
 }
 
 /* ------------------------------------------------------------ agent --- */

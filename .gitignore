@@ -24,3 +24,4 @@ Thumbs.db
 # Agent runtime data
 backend/audit/
 backend/workspace/
+backend/workspaces/

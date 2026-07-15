@@ -1,198 +1,566 @@
 "use client";
 
 /**
- * Coding Agent page. Shows exactly what the backend supports today:
- * task planning, guarded repository inspection, and audit-chain
- * verification. Loads existing tasks, the repo tree, and the audit
- * status on mount; creating a task refreshes everything.
+ * Coding Agent page — the v0.6 controlled pipeline:
+ * register/select project → describe task → plan → isolated workspace
+ * → generate proposal → allowlisted validation → deterministic review
+ * → expandable diff → approve/reject.
+ *
+ * Everything here is a PROPOSAL: approving records the decision but the
+ * live repository is never modified in this milestone, and the UI says
+ * so explicitly.
  */
 
-import { FolderTree, ShieldCheck, ShieldX } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Code2,
+  FolderGit2,
+  Play,
+  ShieldCheck,
+  ThumbsDown,
+  ThumbsUp,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 import ErrorBanner from "@/components/ErrorBanner";
-import AgentTaskForm from "@/components/agent/AgentTaskForm";
-import AgentTimeline from "@/components/agent/AgentTimeline";
+import NishLogo from "@/components/NishLogo";
+import DiffView from "@/components/coding/DiffView";
+import PlanView from "@/components/coding/PlanView";
+import RegisterProject from "@/components/coding/RegisterProject";
+import ReviewView from "@/components/coding/ReviewView";
 import {
-  AbortedError,
   ApiError,
-  createAgentTask,
-  getRepoTree,
-  listAgentTasks,
-  verifyAudit,
+  codingTaskStage,
+  createCodingTask,
+  decideCodingTask,
+  getCodingTask,
+  listCodingProjects,
+  listCodingTasks,
+  registerCodingProject,
+  scanCodingProject,
+  validateCodingTask,
 } from "@/lib/api";
-import type { AgentTask, AuditVerify, RepoTree } from "@/types/agent";
+import type {
+  CodingProject,
+  CodingTask,
+  CodingTaskState,
+  ProjectScan,
+} from "@/types/coding";
 
-export default function AgentPage() {
-  const [tasks, setTasks] = useState<AgentTask[]>([]);
-  const [tree, setTree] = useState<RepoTree | null>(null);
-  const [audit, setAudit] = useState<AuditVerify | null>(null);
-  const [busy, setBusy] = useState(false);
+/* ------------------------------------------------------------- stepper --- */
+
+const PIPELINE: { label: string; states: CodingTaskState[] }[] = [
+  { label: "Plan", states: ["created", "planning", "planned"] },
+  { label: "Workspace", states: ["workspace_ready"] },
+  { label: "Generate", states: ["generating", "generated"] },
+  { label: "Validate", states: ["validating", "validated"] },
+  { label: "Review", states: ["awaiting_approval"] },
+  { label: "Decision", states: ["approved", "rejected"] },
+];
+
+function stageIndex(state: CodingTaskState): number {
+  if (state === "failed") return -1;
+  return PIPELINE.findIndex((stage) => stage.states.includes(state));
+}
+
+function Stepper({ state }: { state: CodingTaskState }) {
+  const current = stageIndex(state);
+  return (
+    <ol className="flex flex-wrap items-center gap-1.5 text-xs" aria-label="Task progress">
+      {PIPELINE.map((stage, index) => {
+        const done = current > index;
+        const active = current === index;
+        return (
+          <li key={stage.label} className="flex items-center gap-1.5">
+            <span
+              className="rounded-full border px-2 py-0.5"
+              style={{
+                borderColor: done || active ? "var(--nova)" : "var(--line)",
+                color: active ? "var(--bg)" : done ? "var(--nova)" : "var(--dim)",
+                background: active ? "var(--nova)" : "transparent",
+              }}
+            >
+              {stage.label}
+            </span>
+            {index < PIPELINE.length - 1 && (
+              <span style={{ color: "var(--dim)" }}>→</span>
+            )}
+          </li>
+        );
+      })}
+      {state === "failed" && (
+        <li
+          className="rounded-full border px-2 py-0.5"
+          style={{ borderColor: "var(--warn)", color: "var(--warn)" }}
+        >
+          Failed
+        </li>
+      )}
+    </ol>
+  );
+}
+
+/* ------------------------------------------------------- project scan --- */
+
+function ScanPanel({ scan }: { scan: ProjectScan }) {
+  const [showTree, setShowTree] = useState(false);
+  return (
+    <div
+      className="space-y-2 rounded-xl border p-4 text-sm"
+      style={{ borderColor: "var(--line)", background: "var(--surface)" }}
+    >
+      <p style={{ color: "var(--dim)" }}>
+        {scan.files.length} files ·{" "}
+        {scan.technologies.length > 0
+          ? scan.technologies.join(", ")
+          : "no recognised technologies"}
+        {scan.git_branch
+          ? ` · branch ${scan.git_branch}${
+              (scan.git_dirty_files ?? 0) > 0
+                ? ` (${scan.git_dirty_files} uncommitted)`
+                : ""
+            }`
+          : ""}
+      </p>
+      {scan.test_commands.length > 0 && (
+        <p style={{ color: "var(--dim)" }}>
+          Detected test commands:{" "}
+          <code className="font-mono text-xs">
+            {scan.test_commands.join("  ·  ")}
+          </code>
+        </p>
+      )}
+      <button
+        onClick={() => setShowTree((value) => !value)}
+        className="flex items-center gap-1 text-xs"
+        style={{ color: "var(--nova)" }}
+      >
+        {showTree ? (
+          <ChevronDown className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5" />
+        )}
+        {showTree ? "Hide" : "Show"} file list
+      </button>
+      {showTree && (
+        <pre
+          className="max-h-72 overflow-auto rounded-lg border p-3 font-mono text-xs leading-relaxed"
+          style={{ borderColor: "var(--line)" }}
+        >
+          {scan.files.map((file) => file.path).join("\n")}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- page --- */
+
+export default function CodingAgentPage() {
+  const [projects, setProjects] = useState<CodingProject[]>([]);
+  const [projectId, setProjectId] = useState<string>("");
+  const [registering, setRegistering] = useState(false);
+  const [scan, setScan] = useState<ProjectScan | null>(null);
+  const [scanLoading, setScanLoading] = useState(false);
+
+  const [tasks, setTasks] = useState<CodingTask[]>([]);
+  const [task, setTask] = useState<CodingTask | null>(null);
+  const [description, setDescription] = useState("");
+
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null); // current action label
   const [error, setError] = useState<string | null>(null);
+  const [decisionMessage, setDecisionMessage] = useState<string | null>(null);
 
-  const abortRef = useRef<AbortController | null>(null);
-
-  const refresh = useCallback(async () => {
-    // Each panel loads independently; one failing doesn't blank the rest.
-    const [tasksResult, treeResult, auditResult] = await Promise.allSettled([
-      listAgentTasks(),
-      getRepoTree(),
-      verifyAudit(),
-    ]);
-    if (tasksResult.status === "fulfilled") setTasks(tasksResult.value.tasks);
-    if (treeResult.status === "fulfilled") setTree(treeResult.value);
-    if (auditResult.status === "fulfilled") setAudit(auditResult.value);
-    if (
-      tasksResult.status === "rejected" &&
-      tasksResult.reason instanceof ApiError
-    ) {
-      setError(tasksResult.reason.message);
+  const loadProjects = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await listCodingProjects();
+      setProjects(list);
+      if (list.length > 0) {
+        setProjectId((current) => current || list[0].id);
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not load projects.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
-    void refresh();
-    return () => abortRef.current?.abort();
-  }, [refresh]);
+    void loadProjects();
+  }, [loadProjects]);
 
-  const submit = useCallback(
-    async (description: string) => {
-      setBusy(true);
-      setError(null);
-      const controller = new AbortController();
-      abortRef.current = controller;
+  // Load scan + recent tasks whenever the selected project changes.
+  useEffect(() => {
+    if (!projectId) return;
+    setScan(null);
+    setTask(null);
+    setDecisionMessage(null);
+    setScanLoading(true);
+    void (async () => {
       try {
-        const task = await createAgentTask(description, controller.signal);
-        setTasks((current) => [task, ...current]);
-        void refresh();
+        const [scanResult, taskList] = await Promise.all([
+          scanCodingProject(projectId),
+          listCodingTasks(projectId),
+        ]);
+        setScan(scanResult);
+        setTasks(taskList);
       } catch (err) {
-        if (err instanceof AbortedError) {
-          // User cancelled; the backend may still record a task — refresh.
-          void refresh();
-        } else if (err instanceof ApiError) {
-          setError(err.message);
-          void refresh(); // a failed task still appears in the list
-        } else {
-          setError("Something went wrong. Please try again.");
-        }
+        setError(
+          err instanceof ApiError ? err.message : "Could not inspect project.",
+        );
       } finally {
-        setBusy(false);
-        abortRef.current = null;
+        setScanLoading(false);
       }
-    },
-    [refresh],
-  );
+    })();
+  }, [projectId]);
+
+  const run = async (label: string, action: () => Promise<CodingTask>) => {
+    setBusy(label);
+    setError(null);
+    try {
+      setTask(await action());
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : `${label} failed.`);
+      // The task may have moved to "failed" server-side — refresh it.
+      if (task) {
+        try {
+          setTask(await getCodingTask(task.id));
+        } catch {
+          /* keep the previous snapshot */
+        }
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleRegister = async (data: {
+    name: string;
+    root_path: string;
+    description: string;
+  }) => {
+    setBusy("register");
+    setError(null);
+    try {
+      const project = await registerCodingProject(data);
+      setRegistering(false);
+      await loadProjects();
+      setProjectId(project.id);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Registration failed.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleAnalyse = () =>
+    run("analyse", () =>
+      createCodingTask({ project_id: projectId, description: description.trim() }),
+    );
+
+  const handleDecision = async (decision: "approved" | "rejected") => {
+    if (!task) return;
+    setBusy(decision);
+    setError(null);
+    try {
+      const result = await decideCodingTask(task.id, decision);
+      setDecisionMessage(result.message);
+      setTask(await getCodingTask(task.id));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Decision failed.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /** The single "next step" action for the current task state. */
+  const nextAction = (): { label: string; onClick: () => void } | null => {
+    if (!task || busy) return null;
+    switch (task.state) {
+      case "planned":
+        return {
+          label: "Create isolated workspace",
+          onClick: () =>
+            void run("workspace", () => codingTaskStage(task.id, "workspace")),
+        };
+      case "workspace_ready":
+        return {
+          label: "Generate proposal",
+          onClick: () =>
+            void run("generate", () => codingTaskStage(task.id, "generate")),
+        };
+      case "generated":
+        return {
+          label:
+            (task.plan?.validation_commands.length ?? 0) > 0
+              ? `Run validation (${task.plan?.validation_commands.length} commands)`
+              : "Run validation",
+          onClick: () =>
+            void run("validate", () =>
+              validateCodingTask(task.id, task.plan?.validation_commands ?? []),
+            ),
+        };
+      case "validated":
+        return {
+          label: "Run review",
+          onClick: () =>
+            void run("review", () => codingTaskStage(task.id, "review")),
+        };
+      default:
+        return null;
+    }
+  };
+
+  const action = nextAction();
+  const canApprove =
+    task?.state === "awaiting_approval" && task.review?.ready_for_approval;
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-6">
-      <AgentTaskForm
-        onSubmit={(description) => void submit(description)}
-        onCancel={() => abortRef.current?.abort()}
-        busy={busy}
-      />
+      {/* Project selection */}
+      <div className="flex flex-wrap items-center gap-2">
+        <FolderGit2 className="h-4 w-4" style={{ color: "var(--nova)" }} />
+        <select
+          value={projectId}
+          onChange={(event) => setProjectId(event.target.value)}
+          disabled={projects.length === 0}
+          aria-label="Select project"
+          className="min-w-48 rounded-lg border px-2 py-2 text-sm"
+          style={{ borderColor: "var(--line)", background: "var(--surface)" }}
+        >
+          {projects.length === 0 ? (
+            <option value="">No projects registered</option>
+          ) : (
+            projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))
+          )}
+        </select>
+        <button
+          onClick={() => setRegistering((value) => !value)}
+          className="rounded-lg border px-3 py-2 text-sm"
+          style={{ borderColor: "var(--line)" }}
+        >
+          {registering ? "Cancel" : "Register project"}
+        </button>
+      </div>
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
-      {/* Workspace + security overview */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <section
-          className="rounded-xl border p-4"
-          style={{ borderColor: "var(--line)", background: "var(--surface)" }}
-        >
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-medium">
-            <FolderTree className="h-4 w-4" style={{ color: "var(--nova)" }} />
-            Workspace files NISH can inspect
-          </h2>
-          {loading ? (
-            <p className="text-sm" style={{ color: "var(--dim)" }}>
-              Loading…
-            </p>
-          ) : tree === null ? (
-            <p className="text-sm" style={{ color: "var(--dim)" }}>
-              Workspace unavailable — is the backend running?
-            </p>
-          ) : tree.entries.length === 0 ? (
-            <p className="text-sm" style={{ color: "var(--dim)" }}>
-              The workspace is empty. Point AGENT_WORKSPACE_ROOT in
-              backend/.env at a project.
-            </p>
-          ) : (
-            <ul className="max-h-56 space-y-1 overflow-y-auto font-mono text-xs">
-              {tree.entries.map((entry) => (
-                <li key={entry.path} className="flex justify-between gap-2">
-                  <span className="truncate">{entry.path}</span>
-                  <span style={{ color: "var(--dim)" }}>
-                    {entry.size_bytes} B
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="mt-2 text-xs" style={{ color: "var(--dim)" }}>
-            Secrets, .git internals, and anything outside the workspace are
-            unreadable by design.
-          </p>
-        </section>
+      {registering && (
+        <RegisterProject onSubmit={(data) => void handleRegister(data)} busy={busy === "register"} />
+      )}
 
-        <section
-          className="rounded-xl border p-4"
-          style={{ borderColor: "var(--line)", background: "var(--surface)" }}
+      {loading ? (
+        <div
+          className="flex items-center justify-center gap-2.5 py-16 text-sm"
+          style={{ color: "var(--dim)" }}
         >
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-medium">
-            {audit?.ok === false ? (
-              <ShieldX className="h-4 w-4" style={{ color: "var(--warn)" }} />
-            ) : (
-              <ShieldCheck className="h-4 w-4" style={{ color: "var(--ok)" }} />
-            )}
-            Security check
-          </h2>
-          {loading ? (
-            <p className="text-sm" style={{ color: "var(--dim)" }}>
-              Loading…
-            </p>
-          ) : audit === null ? (
-            <p className="text-sm" style={{ color: "var(--dim)" }}>
-              Audit status unavailable — is the backend running?
-            </p>
-          ) : (
-            <p className="text-sm">
-              Audit log:{" "}
-              <span
-                style={{ color: audit.ok ? "var(--ok)" : "var(--warn)" }}
-                className="font-medium"
+          <NishLogo pulsing />
+          Loading projects…
+        </div>
+      ) : projects.length === 0 && !registering ? (
+        <div className="flex flex-col items-center gap-3 py-16 text-center">
+          <Code2 className="h-6 w-6" style={{ color: "var(--nova)" }} />
+          <p className="text-sm" style={{ color: "var(--dim)" }}>
+            Register a project directory to let NISH inspect it and propose
+            code changes. NISH never edits a registered project directly —
+            every change is prepared in an isolated workspace and shown to
+            you as a diff first.
+          </p>
+        </div>
+      ) : (
+        projectId && (
+          <>
+            {/* Project inspection */}
+            {scanLoading ? (
+              <div
+                className="flex items-center gap-2.5 rounded-xl border p-4 text-sm"
+                style={{ borderColor: "var(--line)", color: "var(--dim)" }}
               >
-                {audit.ok ? "chain intact" : `tampering detected`}
-              </span>
-              <span className="block text-xs" style={{ color: "var(--dim)" }}>
-                {audit.message}
-              </span>
-            </p>
-          )}
-          <p className="mt-2 text-xs" style={{ color: "var(--dim)" }}>
-            Every agent action is written to a hash-chained, append-only log.
-            The full record lives in Activity Logs.
-          </p>
-        </section>
-      </div>
+                <NishLogo pulsing />
+                Inspecting repository…
+              </div>
+            ) : (
+              scan && <ScanPanel scan={scan} />
+            )}
 
-      {/* Task list */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium">Tasks</h2>
-        {loading ? (
-          <p className="text-sm" style={{ color: "var(--dim)" }}>
-            Loading tasks…
-          </p>
-        ) : tasks.length === 0 ? (
-          <p className="text-sm" style={{ color: "var(--dim)" }}>
-            No tasks yet. Describe one above — NISH will plan it without
-            touching any files.
-          </p>
-        ) : (
-          tasks.map((task) => <AgentTimeline key={task.id} task={task} />)
-        )}
-      </section>
+            {/* Task input */}
+            <div
+              className="space-y-2.5 rounded-xl border p-4"
+              style={{ borderColor: "var(--line)", background: "var(--surface)" }}
+            >
+              <textarea
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Describe the coding task, e.g. “Add input validation to the signup form”"
+                rows={2}
+                maxLength={2000}
+                aria-label="Coding task description"
+                className="w-full resize-none rounded-lg border bg-transparent px-3 py-2 text-sm outline-none placeholder:text-[var(--dim)]"
+                style={{ borderColor: "var(--line)" }}
+              />
+              <div className="flex items-center justify-between gap-2">
+                {tasks.length > 0 && (
+                  <select
+                    aria-label="Recent tasks"
+                    value={task?.id ?? ""}
+                    onChange={(event) => {
+                      const id = event.target.value;
+                      if (!id) return;
+                      setDecisionMessage(null);
+                      void run("load", () => getCodingTask(id));
+                    }}
+                    className="max-w-64 rounded-lg border px-2 py-1.5 text-xs"
+                    style={{ borderColor: "var(--line)", background: "var(--surface)" }}
+                  >
+                    <option value="">Recent tasks…</option>
+                    {tasks.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        [{item.state}] {item.description.slice(0, 48)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  onClick={() => void handleAnalyse()}
+                  disabled={description.trim().length < 8 || busy !== null}
+                  className="ml-auto flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium disabled:opacity-40"
+                  style={{ background: "var(--nova)", color: "var(--bg)" }}
+                >
+                  <Play className="h-4 w-4" />
+                  {busy === "analyse" ? "Analysing…" : "Analyse project"}
+                </button>
+              </div>
+            </div>
+
+            {/* Active task */}
+            {task && (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Stepper state={task.state} />
+                  {busy && busy !== "analyse" && (
+                    <span
+                      className="flex items-center gap-2 text-xs"
+                      style={{ color: "var(--dim)" }}
+                    >
+                      <NishLogo pulsing />
+                      Working…
+                    </span>
+                  )}
+                </div>
+
+                {task.error && (
+                  <p
+                    className="rounded-lg border px-3 py-2 text-sm"
+                    style={{ borderColor: "var(--warn)", color: "var(--warn)" }}
+                  >
+                    {task.error}
+                  </p>
+                )}
+
+                {task.plan && <PlanView plan={task.plan} />}
+
+                {action && (
+                  <button
+                    onClick={action.onClick}
+                    className="flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium"
+                    style={{ background: "var(--nova)", color: "var(--bg)" }}
+                  >
+                    <Play className="h-4 w-4" />
+                    {action.label}
+                  </button>
+                )}
+
+                {task.proposal && (
+                  <section className="space-y-2">
+                    <h3 className="flex items-center gap-2 text-sm font-medium">
+                      <Code2 className="h-4 w-4" style={{ color: "var(--nova)" }} />
+                      Proposed changes
+                      <span
+                        className="rounded-full border px-2 py-0.5 text-xs font-normal"
+                        style={{ borderColor: "var(--line)", color: "var(--dim)" }}
+                      >
+                        proposal only — not applied
+                      </span>
+                    </h3>
+                    <p className="text-sm" style={{ color: "var(--dim)" }}>
+                      {task.proposal.files.length}{" "}
+                      {task.proposal.files.length === 1 ? "file" : "files"}:{" "}
+                      {task.proposal.files
+                        .map((file) => `${file.path} (${file.change_type})`)
+                        .join(", ")}
+                    </p>
+                    <DiffView diff={task.proposal.diff} />
+                  </section>
+                )}
+
+                {(task.review || task.validation_runs.length > 0) && (
+                  <ReviewView
+                    review={task.review}
+                    validations={task.validation_runs}
+                  />
+                )}
+
+                {task.state === "awaiting_approval" && (
+                  <div
+                    className="space-y-2.5 rounded-xl border p-4"
+                    style={{ borderColor: "var(--nova)", background: "var(--surface)" }}
+                  >
+                    <p className="flex items-center gap-2 text-sm">
+                      <ShieldCheck className="h-4 w-4" style={{ color: "var(--nova)" }} />
+                      Your decision is recorded only — in this version NISH
+                      never merges changes into the live repository. The
+                      proposal stays available in the isolated workspace.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => void handleDecision("approved")}
+                        disabled={!canApprove || busy !== null}
+                        title={
+                          canApprove
+                            ? "Record approval"
+                            : "Blocked: review found failing checks or security findings"
+                        }
+                        className="flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium disabled:opacity-40"
+                        style={{ background: "var(--ok)", color: "var(--surface)" }}
+                      >
+                        <ThumbsUp className="h-4 w-4" />
+                        Approve proposal
+                      </button>
+                      <button
+                        onClick={() => void handleDecision("rejected")}
+                        disabled={busy !== null}
+                        className="flex items-center gap-1.5 rounded-lg border px-3.5 py-2 text-sm"
+                        style={{ borderColor: "var(--warn)", color: "var(--warn)" }}
+                      >
+                        <ThumbsDown className="h-4 w-4" />
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {decisionMessage && (
+                  <p
+                    className="rounded-lg border px-3 py-2 text-sm"
+                    style={{ borderColor: "var(--ok)", color: "var(--ok)" }}
+                    role="status"
+                  >
+                    {decisionMessage}
+                  </p>
+                )}
+              </div>
+            )}
+          </>
+        )
+      )}
     </div>
   );
 }

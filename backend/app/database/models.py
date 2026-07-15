@@ -26,6 +26,7 @@ filters by user_id — the ownership checks are real and tested; only the
 import uuid
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     Float,
@@ -195,6 +196,155 @@ class Memory(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+
+class RegisteredProject(Base):
+    """A repository the user explicitly allowed NISH to work with.
+
+    Registration IS the allowlist: coding tools refuse any path that is
+    not the resolved root of a registered project owned by the user.
+    """
+
+    __tablename__ = "registered_projects"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    root_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    description: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    default_branch: Mapped[str] = mapped_column(String(80), nullable=False, default="main")
+    created_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(),
+        onupdate=func.now(), nullable=False,
+    )
+    last_scanned_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class CodingTask(Base):
+    """One coding request moving through the controlled pipeline."""
+
+    __tablename__ = "coding_tasks"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("registered_projects.id", ondelete="CASCADE"), nullable=False
+    )
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False, default="created")
+    plan: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    workspace_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(),
+        onupdate=func.now(), nullable=False,
+    )
+
+    proposals: Mapped[list["CodingProposal"]] = relationship(
+        back_populates="task", cascade="all, delete-orphan"
+    )
+    validation_runs: Mapped[list["ValidationRun"]] = relationship(
+        back_populates="task", cascade="all, delete-orphan",
+        order_by="ValidationRun.id",
+    )
+
+
+class CodingProposal(Base):
+    """A generated set of changes, living ONLY in the isolated workspace
+    until (a future milestone applies) explicit approval."""
+
+    __tablename__ = "coding_proposals"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("coding_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    diff: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="proposed"
+    )  # proposed | approved | rejected
+    warnings: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    task: Mapped[CodingTask] = relationship(back_populates="proposals")
+    files: Mapped[list["CodingProposalFile"]] = relationship(
+        back_populates="proposal", cascade="all, delete-orphan"
+    )
+    approvals: Mapped[list["Approval"]] = relationship(
+        back_populates="proposal", cascade="all, delete-orphan"
+    )
+
+
+class CodingProposalFile(Base):
+    """One changed file: original content preserved for rollback/review."""
+
+    __tablename__ = "coding_proposal_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    proposal_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("coding_proposals.id", ondelete="CASCADE"), nullable=False
+    )
+    path: Mapped[str] = mapped_column(String(500), nullable=False)
+    change_type: Mapped[str] = mapped_column(String(16), nullable=False)  # modify|create
+    original_content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    new_content: Mapped[str] = mapped_column(Text, nullable=False)
+
+    proposal: Mapped[CodingProposal] = relationship(back_populates="files")
+
+
+class ValidationRun(Base):
+    """One allowlisted command executed in the isolated workspace."""
+
+    __tablename__ = "validation_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("coding_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    command: Mapped[str] = mapped_column(String(300), nullable=False)
+    exit_code: Mapped[int | None] = mapped_column(nullable=True)
+    duration_ms: Mapped[int] = mapped_column(nullable=False, default=0)
+    passed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    timed_out: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    output_excerpt: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    task: Mapped[CodingTask] = relationship(back_populates="validation_runs")
+
+
+class Approval(Base):
+    """An explicit user decision on a proposal."""
+
+    __tablename__ = "approvals"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    proposal_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("coding_proposals.id", ondelete="CASCADE"), nullable=False
+    )
+    decision: Mapped[str] = mapped_column(String(16), nullable=False)  # approved|rejected
+    note: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    decided_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    proposal: Mapped[CodingProposal] = relationship(back_populates="approvals")
 
 
 LOCAL_USERNAME = "local"
