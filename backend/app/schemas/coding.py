@@ -86,6 +86,49 @@ class ProposalOut(BaseModel):
     created_at: datetime
 
 
+class ApprovalOut(BaseModel):
+    """The recorded decision, with the integrity hash and expiry that
+    bind it to the exact reviewed proposal."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    decision: str
+    note: str
+    proposal_hash: str | None
+    expires_at: datetime | None
+    decided_at: datetime
+
+
+class ApplicationOut(BaseModel):
+    """One attempt to apply an approved proposal to the repository."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    status: str  # applying | validation_failed | failed | committed | rolled_back
+    branch_name: str
+    original_branch: str
+    original_head: str
+    commit_hash: str | None
+    final_diff: str
+    error: str | None
+    created_at: datetime
+    rolled_back_at: datetime | None
+
+
+class ApplyRequest(BaseModel):
+    """Second explicit confirmation. `proposal_hash` must echo the hash
+    shown at approval time, binding the confirmation to the exact
+    reviewed change set."""
+
+    confirm: bool = False
+    proposal_hash: str = Field(min_length=64, max_length=64)
+
+
+class RollbackRequest(BaseModel):
+    confirm: bool = False
+
+
 class TaskOut(BaseModel):
     id: uuid.UUID
     project_id: uuid.UUID
@@ -97,6 +140,9 @@ class TaskOut(BaseModel):
     proposal: ProposalOut | None = None
     validation_runs: list[ValidationRunOut] = []
     review: ReviewOut | None = None
+    # v0.7: recorded decision + application lifecycle (additive fields).
+    approval: ApprovalOut | None = None
+    application: ApplicationOut | None = None
 
 
 class ValidateRequest(BaseModel):
@@ -111,3 +157,5 @@ class DecisionRequest(BaseModel):
 class DecisionOut(BaseModel):
     decision: str
     message: str
+    proposal_hash: str | None = None
+    expires_at: datetime | None = None

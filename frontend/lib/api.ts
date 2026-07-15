@@ -9,6 +9,7 @@ import type { AgentTask, AuditVerify, RepoTree } from "@/types/agent";
 import type { IdentityInfo } from "@/types/identity";
 import type { Memory, MemoryType } from "@/types/memory";
 import type {
+  ChangeApplication,
   CodingProject,
   CodingTask,
   ProjectScan,
@@ -210,15 +211,39 @@ export function validateCodingTask(
   });
 }
 
+export interface DecisionOut {
+  decision: string;
+  message: string;
+  proposal_hash: string | null;
+  expires_at: string | null;
+}
+
 export function decideCodingTask(
   id: string,
   decision: "approved" | "rejected",
   note = "",
-): Promise<{ decision: string; message: string }> {
-  return request<{ decision: string; message: string }>(
-    `/api/coding/tasks/${id}/decision`,
-    { method: "POST", body: JSON.stringify({ decision, note }) },
-  );
+): Promise<DecisionOut> {
+  return request<DecisionOut>(`/api/coding/tasks/${id}/decision`, {
+    method: "POST",
+    body: JSON.stringify({ decision, note }),
+  });
+}
+
+export function applyCodingTask(
+  id: string,
+  proposalHash: string,
+): Promise<ChangeApplication> {
+  return request<ChangeApplication>(`/api/coding/tasks/${id}/apply`, {
+    method: "POST",
+    body: JSON.stringify({ confirm: true, proposal_hash: proposalHash }),
+  });
+}
+
+export function rollbackCodingTask(id: string): Promise<ChangeApplication> {
+  return request<ChangeApplication>(`/api/coding/tasks/${id}/rollback`, {
+    method: "POST",
+    body: JSON.stringify({ confirm: true }),
+  });
 }
 
 /* ------------------------------------------------------------ agent --- */

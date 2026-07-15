@@ -25,12 +25,14 @@ import { useCallback, useEffect, useState } from "react";
 
 import ErrorBanner from "@/components/ErrorBanner";
 import NishLogo from "@/components/NishLogo";
+import ApplyPanel from "@/components/coding/ApplyPanel";
 import DiffView from "@/components/coding/DiffView";
 import PlanView from "@/components/coding/PlanView";
 import RegisterProject from "@/components/coding/RegisterProject";
 import ReviewView from "@/components/coding/ReviewView";
 import {
   ApiError,
+  applyCodingTask,
   codingTaskStage,
   createCodingTask,
   decideCodingTask,
@@ -38,6 +40,7 @@ import {
   listCodingProjects,
   listCodingTasks,
   registerCodingProject,
+  rollbackCodingTask,
   scanCodingProject,
   validateCodingTask,
 } from "@/lib/api";
@@ -555,6 +558,29 @@ export default function CodingAgentPage() {
                   >
                     {decisionMessage}
                   </p>
+                )}
+
+                {task.state === "approved" && task.approval && (
+                  <ApplyPanel
+                    approval={task.approval}
+                    application={task.application}
+                    busy={busy !== null}
+                    onApply={() =>
+                      void run("apply", () =>
+                        applyCodingTask(
+                          task.id,
+                          task.approval?.proposal_hash ?? "",
+                        ).then(() => getCodingTask(task.id)),
+                      )
+                    }
+                    onRollback={() =>
+                      void run("rollback", () =>
+                        rollbackCodingTask(task.id).then(() =>
+                          getCodingTask(task.id),
+                        ),
+                      )
+                    }
+                  />
                 )}
               </div>
             )}

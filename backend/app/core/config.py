@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     coding_max_patch_bytes: int = 200_000       # total new content
     coding_workspace_ttl_hours: int = 24
     coding_generator_max_attempts: int = 2
+    # Approvals expire after this many hours; applying then requires
+    # a fresh review + approval.
+    apply_approval_ttl_hours: int = 24
 
     # --- Agent (autonomous coding) ---
     # The ONLY directory tree the agent may read. Everything outside it is

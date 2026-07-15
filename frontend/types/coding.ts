@@ -71,6 +71,35 @@ export type CodingTaskState =
   | "generated" | "validating" | "validated" | "awaiting_approval"
   | "approved" | "rejected" | "failed";
 
+export interface Approval {
+  decision: "approved" | "rejected";
+  note: string;
+  /** sha256 binding the approval to the exact reviewed change set. */
+  proposal_hash: string | null;
+  expires_at: string | null;
+  decided_at: string;
+}
+
+export type ApplicationStatus =
+  | "applying"
+  | "validation_failed"
+  | "failed"
+  | "committed"
+  | "rolled_back";
+
+export interface ChangeApplication {
+  id: string;
+  status: ApplicationStatus;
+  branch_name: string;
+  original_branch: string;
+  original_head: string;
+  commit_hash: string | null;
+  final_diff: string;
+  error: string | null;
+  created_at: string;
+  rolled_back_at: string | null;
+}
+
 export interface CodingTask {
   id: string;
   project_id: string;
@@ -82,4 +111,6 @@ export interface CodingTask {
   proposal: Proposal | null;
   validation_runs: ValidationRun[];
   review: Review | null;
+  approval: Approval | null;
+  application: ChangeApplication | null;
 }

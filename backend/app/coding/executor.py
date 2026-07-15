@@ -61,6 +61,8 @@ def _sanitized_env() -> dict[str, str]:
         "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
         # CI=1 makes most JS tooling non-interactive.
         "CI": "1",
+        # Keep validated repositories pristine: no __pycache__ droppings.
+        "PYTHONDONTWRITEBYTECODE": "1",
     }
     return env
 

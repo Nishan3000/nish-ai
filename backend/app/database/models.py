@@ -317,6 +317,11 @@ class ValidationRun(Base):
         Uuid, ForeignKey("coding_tasks.id", ondelete="CASCADE"), nullable=False
     )
     command: Mapped[str] = mapped_column(String(300), nullable=False)
+    # "workspace" (pre-approval, isolated copy) or "apply" (post-approval,
+    # rerun on the real repository's feature branch).
+    phase: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="workspace"
+    )
     exit_code: Mapped[int | None] = mapped_column(nullable=True)
     duration_ms: Mapped[int] = mapped_column(nullable=False, default=0)
     passed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -340,11 +345,63 @@ class Approval(Base):
     )
     decision: Mapped[str] = mapped_column(String(16), nullable=False)  # approved|rejected
     note: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    # sha256 of the exact reviewed proposal content; application refuses
+    # to proceed if the proposal no longer hashes to this value.
+    proposal_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Approvals expire: applying after this moment is refused.
+    expires_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     decided_at: Mapped[object] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
     proposal: Mapped[CodingProposal] = relationship(back_populates="approvals")
+
+
+class ChangeApplication(Base):
+    """One attempt to apply an approved proposal to the real repository
+    on a NISH-owned feature branch. Records everything needed for an
+    honest status display and a verifiable rollback: the original branch
+    and HEAD, the created branch, the commit, and the final diff.
+
+    status: applying | validation_failed | failed | committed | rolled_back
+    """
+
+    __tablename__ = "change_applications"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("coding_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    proposal_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("coding_proposals.id", ondelete="CASCADE"), nullable=False
+    )
+    approval_id: Mapped[int] = mapped_column(
+        ForeignKey("approvals.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="applying")
+    branch_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    original_branch: Mapped[str] = mapped_column(String(200), nullable=False)
+    original_head: Mapped[str] = mapped_column(String(64), nullable=False)
+    commit_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    final_diff: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+    rolled_back_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 LOCAL_USERNAME = "local"

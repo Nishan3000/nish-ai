@@ -374,7 +374,13 @@ def test_full_pipeline_to_decision(client: TestClient, project_dir: Path) -> Non
         f"/api/coding/tasks/{task['id']}/decision",
         json={"decision": "approved", "note": "looks good"},
     ).json()
-    assert "NOT part of this milestone" in decision["message"]
+    # Honest messaging: approval alone modifies nothing, and the
+    # response carries the integrity hash + expiry that bind a later
+    # application to this exact proposal.
+    assert "Nothing has been modified" in decision["message"]
+    assert "never" in decision["message"] or "nothing is ever" in decision["message"]
+    assert len(decision["proposal_hash"]) == 64
+    assert decision["expires_at"] is not None
     # Original file genuinely untouched.
     assert "subtract" not in (project_dir / "calculator.py").read_text()
 

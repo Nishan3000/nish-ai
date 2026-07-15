@@ -32,6 +32,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.conversations import current_user
+from app.coding import apply as apply_service
+from app.coding import gitops
 from app.coding import inspect as inspect_service
 from app.coding import state as task_state
 from app.coding.executor import CommandRejected, run_allowlisted
@@ -43,6 +45,7 @@ from app.coding.workspace import cleanup_workspace, create_workspace
 from app.core.audit import get_audit_logger
 from app.core.config import get_settings
 from app.database.models import (
+    ChangeApplication,
     Approval,
     CodingProposal,
     CodingProposalFile,
@@ -53,6 +56,10 @@ from app.database.models import (
 )
 from app.database.session import get_db
 from app.schemas.coding import (
+    ApplicationOut,
+    ApplyRequest,
+    ApprovalOut,
+    RollbackRequest,
     DecisionOut,
     DecisionRequest,
     ProjectOut,
@@ -441,6 +448,92 @@ def review(
     return _task_out(db, task)
 
 
+@router.post("/tasks/{task_id}/apply", response_model=ApplicationOut)
+def apply_task(
+    task_id: uuid.UUID,
+    body: ApplyRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> ApplicationOut:
+    """Apply the approved proposal to a new local nish/ feature branch.
+
+    Requires the second explicit confirmation with the approval's
+    proposal hash echoed back. Idempotent: re-sending after a successful
+    commit returns the existing application instead of applying twice.
+    Nothing is ever pushed, merged, or deployed.
+    """
+    task = _owned_task(db, user, task_id)
+    project = _owned_project(db, user, task.project_id)
+    application = apply_service.apply_proposal(
+        db, user, task, project,
+        confirm=body.confirm,
+        expected_hash=body.proposal_hash,
+    )
+    return ApplicationOut.model_validate(application)
+
+
+@router.get("/tasks/{task_id}/application", response_model=ApplicationOut)
+def get_application(
+    task_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> ApplicationOut:
+    task = _owned_task(db, user, task_id)
+    application = db.scalar(
+        select(ChangeApplication)
+        .where(
+            ChangeApplication.task_id == task.id,
+            ChangeApplication.user_id == user.id,
+        )
+        .order_by(ChangeApplication.created_at.desc())
+    )
+    if application is None:
+        raise HTTPException(status_code=404, detail="No application for this task.")
+    return ApplicationOut.model_validate(application)
+
+
+@router.get("/tasks/{task_id}/application/commit")
+def get_commit_details(
+    task_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> dict:
+    """Live `git show --stat` for the application's commit."""
+    task = _owned_task(db, user, task_id)
+    project = _owned_project(db, user, task.project_id)
+    application = db.scalar(
+        select(ChangeApplication)
+        .where(ChangeApplication.task_id == task.id)
+        .order_by(ChangeApplication.created_at.desc())
+    )
+    if application is None or application.commit_hash is None:
+        raise HTTPException(status_code=404, detail="No commit for this task.")
+    try:
+        repo = validate_project_root(project.root_path)
+        details = gitops.commit_details(repo, application.commit_hash)
+    except (gitops.GitError, Exception) as exc:  # noqa: BLE001
+        raise HTTPException(status_code=409, detail=f"Could not read commit: {exc}")
+    return {"commit_hash": application.commit_hash, "details": details}
+
+
+@router.post("/tasks/{task_id}/rollback", response_model=ApplicationOut)
+def rollback_task(
+    task_id: uuid.UUID,
+    body: RollbackRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+) -> ApplicationOut:
+    """Remove the NISH-created branch and commit — only after verifying
+    they are exactly what this task created, so user work is never
+    touched."""
+    task = _owned_task(db, user, task_id)
+    project = _owned_project(db, user, task.project_id)
+    application = apply_service.rollback_application(
+        db, user, task, project, confirm=body.confirm
+    )
+    return ApplicationOut.model_validate(application)
+
+
 @router.post("/tasks/{task_id}/decision", response_model=DecisionOut)
 def decide(
     task_id: uuid.UUID,
@@ -462,14 +555,22 @@ def decide(
     if proposal is None:
         raise HTTPException(status_code=409, detail="Task has no proposal.")
 
-    db.add(
-        Approval(
-            proposal_id=proposal.id, decision=body.decision, note=body.note
-        )
+    files = list(proposal.files)
+    approval = Approval(
+        proposal_id=proposal.id, decision=body.decision, note=body.note
     )
+    if body.decision == "approved":
+        # Bind the approval to the EXACT reviewed change set, and give it
+        # a shelf life. Application later refuses on any mismatch/expiry.
+        approval.proposal_hash = apply_service.compute_proposal_hash(
+            proposal, files
+        )
+        approval.expires_at = apply_service.approval_expiry()
+    db.add(approval)
     proposal.status = body.decision
     task_state.transition(task, body.decision, note=body.note[:100])
     db.commit()
+    db.refresh(approval)
     _audit().record(
         actor="coding_decision", action=body.decision, outcome="ok",
         task_id=str(task.id),
@@ -477,13 +578,19 @@ def decide(
     )
     if body.decision == "approved":
         message = (
-            "Proposal approved and recorded. Note: applying approved changes "
-            "to the live repository is NOT part of this milestone — the "
-            "original project has not been modified."
+            "Proposal approved and recorded. Nothing has been modified yet: "
+            "you can now apply it to a new local feature branch (with a "
+            "second confirmation), and nothing is ever pushed or merged "
+            "automatically."
         )
     else:
         message = "Proposal rejected and recorded. The original project was never modified."
-    return DecisionOut(decision=body.decision, message=message)
+    return DecisionOut(
+        decision=body.decision,
+        message=message,
+        proposal_hash=approval.proposal_hash,
+        expires_at=approval.expires_at,
+    )
 
 
 @router.delete("/tasks/{task_id}/workspace", status_code=204)
@@ -559,6 +666,19 @@ def _task_out(db: Session, task: CodingTask) -> TaskOut:
         )
 
     plan = CodingPlan.model_validate(task.plan) if task.plan else None
+    approval_row = None
+    application_row = None
+    if proposal is not None:
+        approval_row = db.scalar(
+            select(Approval)
+            .where(Approval.proposal_id == proposal.id)
+            .order_by(Approval.decided_at.desc())
+        )
+        application_row = db.scalar(
+            select(ChangeApplication)
+            .where(ChangeApplication.task_id == task.id)
+            .order_by(ChangeApplication.created_at.desc())
+        )
     return TaskOut(
         id=task.id,
         project_id=task.project_id,
@@ -570,4 +690,10 @@ def _task_out(db: Session, task: CodingTask) -> TaskOut:
         proposal=proposal_out,
         validation_runs=validations,
         review=review_out,
+        approval=ApprovalOut.model_validate(approval_row) if approval_row else None,
+        application=(
+            ApplicationOut.model_validate(application_row)
+            if application_row
+            else None
+        ),
     )
